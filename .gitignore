@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+*.log
+pipeline_session.json
+processed.txt
+auth.json
+shopify_token.txt
+nifty_urls*.json
+image_manifest.json
+shopify_product_manifest.json
+scrape_errors.json
+watcher_log.txt
+debug-*.jpg

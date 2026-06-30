@@ -1,0 +1,15 @@
+{
+  "name": "nifty-uploader",
+  "version": "1.0.0",
+  "description": "Agentic Playwright scripts to bulk upload and list clothing on nifty.ai",
+  "main": "upload.js",
+  "scripts": {
+    "upload": "node upload.js",
+    "list": "node list.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "playwright": "^1.44.0"
+  }
+}

@@ -1,0 +1,55 @@
+# 4XI Studios - Fine-Tuning Config
+# Vision classification model for resale clothing photo sorting
+# Base model: LLaVA-1.6 (LLaVA-NeXT) 7B
+# Hardware: NVIDIA RTX 4070 (12GB VRAM)
+# Training method: LoRA (Low-Rank Adaptation)
+
+### Model
+model_name_or_path: llava-hf/llava-1.5-7b-hf
+
+### Method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+
+### LoRA settings
+# Rank 16 is a good balance for 12GB VRAM
+# Higher rank = more capacity but more VRAM
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+### Dataset
+dataset: 4xi_train
+dataset_dir: G:/My Drive/Archive/dataset
+eval_dataset: 4xi_val
+template: llava
+cutoff_len: 768
+max_samples: 10000
+overwrite_cache: true
+preprocessing_num_workers: 1
+
+### Output
+output_dir: G:/My Drive/Archive/model/4xi_classifier_v1
+logging_steps: 10
+save_steps: 100
+plot_loss: true
+overwrite_output_dir: true
+
+### Training
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4
+learning_rate: 0.0001
+num_train_epochs: 5.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+ddp_timeout: 180000000
+
+### Evaluation
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 100
+
+
