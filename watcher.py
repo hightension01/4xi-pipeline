@@ -506,6 +506,50 @@ def build_workflow(filename: str, output_prefix: str) -> dict:
 
 # ── COMFYUI API ───────────────────────────────────────────────────────────────
 
+def preflight_check() -> bool:
+    """
+    Verify ComfyUI is up and the nodes our workflow needs are registered.
+    Returns True if safe to proceed, False if we should abort.
+    """
+    required_nodes = [
+        "BiRefNetRMBG",
+        "ImpactDilateMask",
+        "MaskToSEGS",
+        "SetDefaultImageForSEGS",
+        "ImpactDecomposeSEGS",
+        "ImpactFrom_SEG_ELT",
+    ]
+
+    # 1. Is ComfyUI reachable?
+    try:
+        with urllib.request.urlopen(f"{config.COMFYUI_API}/system_stats", timeout=5) as resp:
+            resp.read()
+    except Exception as e:
+        log(f"PREFLIGHT FAIL: ComfyUI not reachable at {config.COMFYUI_API} — {e}")
+        log("  Make sure ComfyUI is running before starting the pipeline.")
+        return False
+
+    # 2. Are required nodes registered?
+    try:
+        with urllib.request.urlopen(f"{config.COMFYUI_API}/object_info", timeout=10) as resp:
+            node_defs = json.loads(resp.read())
+    except Exception as e:
+        log(f"PREFLIGHT FAIL: Could not fetch node list from ComfyUI — {e}")
+        return False
+
+    missing = [n for n in required_nodes if n not in node_defs]
+    if missing:
+        log(f"PREFLIGHT FAIL: Required ComfyUI nodes are missing:")
+        for n in missing:
+            log(f"  ✗ {n}")
+        log("  These nodes come from ComfyUI-Impact-Pack and ComfyUI-RMBG.")
+        log("  Check that those custom nodes loaded without errors in ComfyUI.")
+        return False
+
+    log(f"Preflight OK — ComfyUI up, all {len(required_nodes)} required nodes present.")
+    return True
+
+
 def queue_prompt(workflow: dict) -> str | None:
     payload = json.dumps({"prompt": workflow}).encode("utf-8")
     req = urllib.request.Request(
@@ -515,7 +559,20 @@ def queue_prompt(workflow: dict) -> str | None:
     )
     try:
         with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read()).get("prompt_id")
+            result = json.loads(resp.read())
+
+        # ComfyUI returns node_errors when validation fails — no prompt_id is issued
+        if "node_errors" in result and result["node_errors"]:
+            log(f"ERROR: ComfyUI workflow validation failed:")
+            for node_id, err in result["node_errors"].items():
+                log(f"  Node {node_id}: {err.get('errors', err)}")
+            return None
+
+        prompt_id = result.get("prompt_id")
+        if not prompt_id:
+            log(f"ERROR: ComfyUI returned no prompt_id. Response: {result}")
+        return prompt_id
+
     except urllib.error.URLError as e:
         log(f"ERROR: Could not reach ComfyUI API — {e}")
         return None
@@ -525,10 +582,22 @@ def get_output_files(prompt_id: str) -> list[str]:
     try:
         with urllib.request.urlopen(f"{config.COMFYUI_API}/history/{prompt_id}") as resp:
             history = json.loads(resp.read())
-            outputs = history.get(prompt_id, {}).get("outputs", {})
+            entry   = history.get(prompt_id, {})
+
+            # Check if ComfyUI reported an execution error
+            status = entry.get("status", {})
+            if status.get("status_str") == "error":
+                msgs = status.get("messages", [])
+                for kind, detail in msgs:
+                    if kind == "execution_error":
+                        log(f"  ERROR in ComfyUI execution: {detail.get('exception_message', detail)}")
+                        log(f"    Node: {detail.get('node_type', '?')} (id {detail.get('node_id', '?')})")
+
+            outputs = entry.get("outputs", {})
             return [img["filename"] for node in outputs.values()
                     for img in node.get("images", [])]
-    except Exception:
+    except Exception as e:
+        log(f"  WARNING: Could not fetch output history: {e}")
         return []
 
 
@@ -633,6 +702,13 @@ def process_item(item_images: list[Path], item_folder: Path,
                 post_process_output_image(dest, img_class)
                 success_count += 1
 
+    # Safety: only archive originals if at least one image was successfully processed.
+    # If ComfyUI failed on everything, leave originals in place so they can be retried.
+    if success_count == 0 and total > 0:
+        log(f"  SAFETY: No outputs produced for {item_name} — originals NOT archived.")
+        log(f"  Fix the ComfyUI issue and re-run to process this item.")
+        return False
+
     for image_path in all_item_images:
         dest = archive_folder / image_path.name
         if image_path.exists():
@@ -656,6 +732,9 @@ def main(single_pass: bool = False, count: int = None):
         log("*** DRY RUN MODE — no files will be moved or sent to ComfyUI ***")
     else:
         ensure_dirs()
+        if not preflight_check():
+            log("Aborting — fix the issues above before running the pipeline.")
+            return
     load_clip_model()
 
     while True:
