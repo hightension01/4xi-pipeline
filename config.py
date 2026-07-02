@@ -31,6 +31,9 @@ OPENAI_API_KEY     = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_API_URL     = "https://api.openai.com/v1/chat/completions"
 OPENAI_MODEL       = "gpt-4o-mini"
 
+GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL       = "gemini-2.0-flash-lite"  # free tier, fast, vision-capable
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 GDRIVE_RAW         = r"G:\My Drive\raw_intake"
 GDRIVE_PROCESSED   = r"G:\My Drive\processed_output"

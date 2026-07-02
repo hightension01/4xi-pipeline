@@ -207,6 +207,37 @@ def classify_with_claude(image_path: Path) -> str:
         return IMAGE_TYPE_PRODUCT
 
 
+def classify_with_gemini(image_path: Path) -> str:
+    """Classify via Google Gemini vision API (free tier available)."""
+    try:
+        image_data = _image_to_b64(image_path)
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{config.GEMINI_MODEL}:generateContent?key={config.GEMINI_API_KEY}"
+        )
+        payload = json.dumps({
+            "contents": [{
+                "parts": [
+                    {"inline_data": {"mime_type": "image/jpeg", "data": image_data}},
+                    {"text": _CLASSIFY_PROMPT},
+                ]
+            }],
+            "generationConfig": {"maxOutputTokens": 10, "temperature": 0},
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read())
+            label  = result["candidates"][0]["content"]["parts"][0]["text"].strip().lower()
+            return label if label in LABELS else IMAGE_TYPE_PRODUCT
+
+    except Exception as e:
+        log(f"Gemini classification failed for {image_path.name}: {e} — defaulting to product")
+        return IMAGE_TYPE_PRODUCT
+
+
 def classify_with_openai(image_path: Path) -> str:
     """Classify via OpenAI vision API."""
     try:
@@ -246,6 +277,7 @@ _API_CLASSIFIERS = {
     "deepseek": classify_with_deepseek,
     "claude":   classify_with_claude,
     "openai":   classify_with_openai,
+    "gemini":   classify_with_gemini,
 }
 
 
