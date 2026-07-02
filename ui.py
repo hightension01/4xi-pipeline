@@ -159,7 +159,7 @@ class App(tk.Tk):
                   relief="flat", cursor="hand2", padx=10, pady=3,
                   command=self._clear_terminal).pack(side="right")
 
-        term_wrap = tk.Frame(self, bg=BG, padx=12, pady=(0, 12))
+        term_wrap = tk.Frame(self, bg=BG, padx=12, pady=12)
         term_wrap.pack(fill="both", expand=True)
 
         self._terminal = scrolledtext.ScrolledText(
