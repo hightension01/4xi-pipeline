@@ -51,7 +51,7 @@ RETRAIN_SCRIPT     = str(REPO_ROOT / "retrain_clip_4xi.py")
 SESSION_FILE       = str(REPO_ROOT / "nifty-uploader" / "pipeline_session.json")
 
 # ── Classifier tuning ─────────────────────────────────────────────────────────
-CLIP_CONFIDENCE    = 0.45   # below this -> fall back to API classifier
+CLIP_CONFIDENCE    = 0.60   # below this -> fall back to API classifier
 POLL_INTERVAL      = 10     # seconds between folder scans
 PROCESS_TIMEOUT    = 300    # seconds to wait for ComfyUI per image
 DRY_RUN            = False  # True = classify only, no file moves
